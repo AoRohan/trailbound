@@ -1,0 +1,62 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# The whole reason this runs here rather than locally: an Android build wants
+# 2-3 GB of RAM for Gradle and Kotlin, which the dev laptop does not have to
+# spare. GitHub's runner has 16 GB and the Android SDK preinstalled, and it
+# costs nothing.
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - run: npm ci
+
+      - name: Build the web app
+        # No VITE_BASE here: inside the APK the app is served from the root of
+        # its own bundle, not from a /repo/ subpath like Pages.
+        run: npm run build
+
+      - name: Copy the web build into the Android project
+        run: npx cap sync android
+
+      - name: Assemble debug APK
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Confirm no location permission shipped
+        # A regression here would be the one thing the user explicitly asked
+        # never to happen, so it fails the build rather than a code review.
+        run: |
+          MANIFEST=$(find android/app/build/intermediates -name AndroidManifest.xml -path '*debug*' | head -1)
+          echo "Checking $MANIFEST"
+          if grep -qi 'permission.ACCESS_[A-Z_]*LOCATION' "$MANIFEST"; then
+            echo "::error::A location permission was found in the merged manifest"
+            grep -i 'permission.ACCESS_[A-Z_]*LOCATION' "$MANIFEST"
+            exit 1
+          fi
+          echo "No location permission present."
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: trailbound-debug-apk
+          path: android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error

@@ -1,0 +1,11 @@
+{
+  "appId": "com.aorohan.trailbound",
+  "appName": "Trailbound",
+  "webDir": "dist",
+  "android": {
+    "backgroundColor": "#0d1014"
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}

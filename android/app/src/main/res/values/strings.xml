@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Trailbound</string>
+    <string name="title_activity_main">Trailbound</string>
+    <string name="package_name">com.aorohan.trailbound</string>
+    <string name="custom_url_scheme">com.aorohan.trailbound</string>
+</resources>

@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useGame } from '../app/useGame'
 import { biomeById } from '../game/content'
-import { ManualStepSource } from '../steps/ManualStepSource'
-import type { StepSource } from '../steps/StepSource'
+import type { CompositeStepSource } from '../steps/CompositeStepSource'
 import type { StorageAdapter } from '../storage/StorageAdapter'
 import { CampScreen } from './CampScreen'
 import { JournalScreen } from './JournalScreen'
@@ -20,7 +19,13 @@ const TABS: { id: Tab; icon: string; label: string }[] = [
   { id: 'settings', icon: '⚙️', label: 'Settings' },
 ]
 
-export function App({ storage, source }: { storage: StorageAdapter; source: StepSource }) {
+export function App({
+  storage,
+  source,
+}: {
+  storage: StorageAdapter
+  source: CompositeStepSource
+}) {
   const api = useGame(storage, source)
   const [tab, setTab] = useState<Tab>('trail')
 
@@ -40,11 +45,17 @@ export function App({ storage, source }: { storage: StorageAdapter; source: Step
   }
 
   const addSteps = (steps: number, minutes: number) => {
-    if (source instanceof ManualStepSource) {
-      source.add(steps, minutes)
-      void api.sync()
-    }
+    source.add(steps, minutes)
+    void api.sync()
   }
+
+  // Manual entry is offered when there is no working device source — on the web
+  // always, and on the phone only when Health Connect or the sensor is missing,
+  // unavailable or unauthorised. Showing it alongside a working device source
+  // would just invite double-counting the same walk.
+  const showManual =
+    source.kind === 'manual' ||
+    (api.status !== null && (!api.status.available || !api.status.permissionGranted))
 
   return (
     <div className="app">
@@ -66,7 +77,7 @@ export function App({ storage, source }: { storage: StorageAdapter; source: Step
         {tab === 'trail' && (
           <TrailScreen
             state={state}
-            manual={source.kind === 'manual'}
+            manual={showManual}
             syncing={api.syncing}
             onAddSteps={addSteps}
             onToggleTrained={api.toggleTrained}

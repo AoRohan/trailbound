@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+﻿// @vitest-environment jsdom
 /**
  * End-to-end through the real UI: mount the app, walk, read the report, spend
  * salvage. Catches the class of bug the pure-logic tests cannot — a screen that
@@ -9,7 +9,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { App } from '../src/ui/App'
 import { LocalStorageAdapter } from '../src/storage/LocalStorageAdapter'
-import { ManualStepSource } from '../src/steps/ManualStepSource'
+import { CompositeStepSource } from '../src/steps/CompositeStepSource'
 import { newGame } from '../src/game/save'
 
 beforeAll(() => {
@@ -32,7 +32,7 @@ afterEach(() => {
 
 function mount() {
   const storage = new LocalStorageAdapter()
-  const source = new ManualStepSource()
+  const source = new CompositeStepSource(null)
   render(<App storage={storage} source={source} />)
   return { storage, source }
 }
@@ -77,7 +77,7 @@ describe('the app', () => {
     cleanup()
 
     // A second mount reads the same localStorage the first one wrote.
-    render(<App storage={first.storage} source={new ManualStepSource()} />)
+    render(<App storage={first.storage} source={new CompositeStepSource(null)} />)
     await waitFor(() => expect(screen.getAllByText('1,000').length).toBeGreaterThan(0))
   })
 
@@ -101,7 +101,7 @@ describe('the app', () => {
     rich.camp.salvage = 5000
     await storage.save(rich)
 
-    render(<App storage={storage} source={new ManualStepSource()} />)
+    render(<App storage={storage} source={new CompositeStepSource(null)} />)
     await screen.findByText('The Verdant Mile')
 
     fireEvent.click(screen.getByText('Camp'))
@@ -151,3 +151,4 @@ describe('the app', () => {
     expect(await screen.findByText('The Verdant Mile')).toBeTruthy()
   })
 })
+
