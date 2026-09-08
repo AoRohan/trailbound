@@ -21,6 +21,7 @@ import androidx.health.connect.client.time.TimeRangeFilter
 import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
+import com.getcapacitor.PermissionState
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.ActivityCallback
@@ -126,7 +127,7 @@ class StepsPlugin : Plugin() {
         // The permission only exists from Android 10; before that the sensor is
         // readable without it.
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return true
-        return getPermissionState(ACTIVITY_RECOGNITION_ALIAS).toString() == "granted"
+        return getPermissionState(ACTIVITY_RECOGNITION_ALIAS) == PermissionState.GRANTED
     }
 
     override fun handleOnDestroy() {
@@ -347,9 +348,12 @@ class StepsPlugin : Plugin() {
                 if (count <= 0) continue
                 total += count
 
+                // aggregateGroupByDuration buckets carry Instants directly.
+                // (The Period variant hands back LocalDateTime instead — easy
+                // to mix up, and it would not compile.)
                 val entry = JSObject()
-                entry.put("start", bucket.startTime.toInstant(java.time.ZoneOffset.UTC).toEpochMilli())
-                entry.put("end", bucket.endTime.toInstant(java.time.ZoneOffset.UTC).toEpochMilli())
+                entry.put("start", bucket.startTime.toEpochMilli())
+                entry.put("end", bucket.endTime.toEpochMilli())
                 entry.put("steps", count)
                 buckets.put(entry)
             }

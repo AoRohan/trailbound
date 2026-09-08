@@ -1,5 +1,8 @@
 ext {
-    minSdkVersion = 24
+    // 26, not Capacitor's default 24: androidx.health.connect requires it.
+    // Overriding with tools:overrideLibrary would compile but risks runtime
+    // failures, and Health Connect needs Android 9+ in practice anyway.
+    minSdkVersion = 26
     compileSdkVersion = 36
     targetSdkVersion = 36
     androidxActivityVersion = '1.11.0'
