@@ -9,6 +9,9 @@ on:
 # 2-3 GB of RAM for Gradle and Kotlin, which the dev laptop does not have to
 # spare. GitHub's runner has 16 GB and the Android SDK preinstalled, and it
 # costs nothing.
+permissions:
+  contents: write
+
 jobs:
   apk:
     runs-on: ubuntu-latest
@@ -62,3 +65,24 @@ jobs:
           name: trailbound-debug-apk
           path: android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
+
+      # Artifacts need a GitHub login to download, which is painful on a phone.
+      # A rolling prerelease gives a stable, login-free URL instead:
+      #   github.com/AoRohan/trailbound/releases/latest/download/app-debug.apk
+      - name: Publish rolling release
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest --yes --cleanup-tag --repo "$GITHUB_REPOSITORY" || true
+          gh release create latest \
+            android/app/build/outputs/apk/debug/app-debug.apk \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Latest build" \
+            --prerelease \
+            --notes "Debug APK built from \`${GITHUB_SHA:0:7}\`.
+
+          Install: download on the phone and tap it. Android will ask you to
+          allow installing from unknown sources the first time.
+
+          Declares no location permission."

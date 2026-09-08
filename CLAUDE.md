@@ -46,10 +46,20 @@ These came from the user and are not negotiable without asking:
   declaring new steps, so trimming the window must not trim the number.
 - **Don't round-trip UTF-8 files through PowerShell** `Get-Content`/`Set-Content`
   in this environment — it double-encodes em dashes and emoji. Use the Edit tool.
+- **Write commit messages to a file and use `git commit -F`.** PowerShell
+  here-strings (`@'…'@`) silently mis-parse some multi-line messages, and the
+  failure looks like a *pathspec* error while the commit quietly doesn't happen.
+  Always verify with `git log origin/main` rather than trusting an echoed
+  "pushed".
 - **`android/gradlew` needs its exec bit set** (`git update-index --chmod=+x`);
   Windows git does not track it and the Linux runner fails with exit 126.
 - **`variables.gradle` is applied after the `buildscript` block**, so anything a
   classpath dependency references must be declared inline in `build.gradle`.
+- **Capacitor 8 compiles at Java 21** — the runner JDK and both
+  `compileOptions`/`jvmTarget` must say 21, or `:capacitor-android` fails with
+  "invalid source release: 21".
+- **minSdk is 26**, forced by `androidx.health.connect`. Don't lower it back to
+  Capacitor's default 24.
 
 ## Commands
 
