@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.vite/
+*.local
+.DS_Store
+Thumbs.db
+
+# Android build output (the shell itself is committed; its artefacts are not)
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+*.apk
+*.aab
+*.keystore
