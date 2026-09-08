@@ -24,7 +24,9 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17
+          # Capacitor 8's own android module compiles at source release 21, so
+          # anything lower fails with "invalid source release: 21".
+          java-version: 21
 
       - uses: gradle/actions/setup-gradle@v4
 

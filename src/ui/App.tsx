@@ -78,9 +78,11 @@ export function App({
           <TrailScreen
             state={state}
             manual={showManual}
+            onDevice={source.kind !== 'manual'}
             syncing={api.syncing}
             onAddSteps={addSteps}
             onToggleTrained={api.toggleTrained}
+            onSync={() => void api.sync()}
           />
         )}
         {tab === 'camp' && <CampScreen state={state} onBuy={api.buyUpgrade} />}

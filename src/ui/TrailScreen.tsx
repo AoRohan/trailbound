@@ -29,13 +29,19 @@ export function TrailScreen({
   state,
   onAddSteps,
   onToggleTrained,
+  onSync,
   manual,
+  onDevice,
   syncing,
 }: {
   state: GameState
   onAddSteps: (steps: number, minutes: number) => void
   onToggleTrained: (trained: boolean) => void
+  onSync: () => void
+  /** Show the type-it-in controls. */
   manual: boolean
+  /** Running inside the Android shell, where a device source is expected. */
+  onDevice: boolean
   syncing: boolean
 }) {
   const [custom, setCustom] = useState('')
@@ -173,12 +179,24 @@ export function TrailScreen({
         </button>
       </div>
 
+      {!manual && (
+        <button
+          className="btn btn--wide"
+          style={{ marginBottom: 12 }}
+          disabled={syncing}
+          onClick={onSync}
+        >
+          {syncing ? 'Reading steps…' : '↻ Sync steps now'}
+        </button>
+      )}
+
       {manual && (
         <div className="card">
           <div className="card__title">Walk</div>
           <div className="small muted" style={{ marginBottom: 4 }}>
-            The browser cannot read your pedometer, so enter steps by hand here. The Android
-            app does this for you.
+            {onDevice
+              ? 'No step data is reaching the game yet, so you can enter steps by hand here. Check the step source on the Settings tab.'
+              : 'A browser cannot read your pedometer with the screen off, so enter steps by hand here. The Android app reads them for you.'}
           </div>
           <div className="chiprow">
             {QUICK_ADDS.map((n) => (
