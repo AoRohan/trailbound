@@ -1,4 +1,4 @@
-import type { StepBucket } from '../game/types'
+import type { StepReading } from '../game/types'
 
 export type StepSourceKind = 'manual' | 'health-connect' | 'sensor'
 
@@ -28,8 +28,12 @@ export interface StepSource {
   /** Returns whether permission is granted after the attempt. */
   requestPermission(): Promise<boolean>
   /**
-   * Steps in `(since, now]`, as buckets. May return overlapping or already-seen
-   * data — `sanitizeBuckets` is responsible for making it safe, not the source.
+   * Steps for this sync, split into re-readable history and one-shot deltas.
+   *
+   * `since` is a hint, not a contract: an absolute source is free to return a
+   * wider trailing window, and should, because a provider may have backdated
+   * steps into the store since the last sync. Overlapping or already-seen data
+   * is expected — making it safe is `resolve`'s job, not the source's.
    */
-  fetch(since: number, now: number): Promise<StepBucket[]>
+  fetch(since: number, now: number): Promise<StepReading>
 }

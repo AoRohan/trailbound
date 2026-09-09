@@ -1,4 +1,4 @@
-import type { StepBucket } from '../game/types'
+import type { StepReading } from '../game/types'
 import { ManualStepSource } from './ManualStepSource'
 import type { StepSource, StepSourceKind, StepSourceStatus } from './StepSource'
 
@@ -34,9 +34,15 @@ export class CompositeStepSource implements StepSource {
     return this.device.requestPermission()
   }
 
-  async fetch(since: number, now: number): Promise<StepBucket[]> {
-    const fromDevice = this.device ? await this.device.fetch(since, now) : []
+  async fetch(since: number, now: number): Promise<StepReading> {
+    const fromDevice = this.device
+      ? await this.device.fetch(since, now)
+      : { absolute: [], incremental: [] }
     const fromPlayer = await this.manual.fetch(since, now)
-    return [...fromDevice, ...fromPlayer]
+
+    return {
+      absolute: [...fromDevice.absolute, ...fromPlayer.absolute],
+      incremental: [...fromDevice.incremental, ...fromPlayer.incremental],
+    }
   }
 }

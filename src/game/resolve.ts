@@ -24,6 +24,7 @@ import { generateGear, gearPower, shouldEquip } from './loot'
 import {
   bucketsToDayRecords,
   computeStreak,
+  mergeAuthoritativeDayRecords,
   mergeDayRecords,
   sanitizeBuckets,
   splitAtHourBoundaries,
@@ -31,7 +32,15 @@ import {
 import { rngFor } from './rng'
 import { campPaceMultiplier, campSalvageMultiplier, derivedStats } from './stats'
 import { dayKey } from './time'
-import type { BuffTotals, GameState, LogEntry, Report, RouteNode, StepBucket } from './types'
+import type {
+  BuffTotals,
+  GameState,
+  LogEntry,
+  Report,
+  RouteNode,
+  StepBucket,
+  StepReading,
+} from './types'
 
 export interface ResolveResult {
   state: GameState
@@ -53,19 +62,51 @@ interface Ctx {
 
 export function resolve(
   state: GameState,
-  buckets: readonly StepBucket[],
+  input: readonly StepBucket[] | StepReading,
   now: number = Date.now(),
 ): ResolveResult {
   const from = state.lastSyncAt
 
-  const clean = splitAtHourBoundaries(sanitizeBuckets(buckets, from, now))
-  const incoming = bucketsToDayRecords(clean)
-  const { history, creditedByDay } = mergeDayRecords(state.history, incoming)
+  // A bare array is incremental — that's what manual entry and the raw sensor
+  // produce, and it keeps every existing caller working unchanged.
+  const reading: StepReading = Array.isArray(input)
+    ? { absolute: [], incremental: input }
+    : (input as StepReading)
+
+  // Incremental data is clipped at the watermark: it is a one-shot delta, so
+  // anything at or before the last sync has already been counted.
+  const cleanIncremental = splitAtHourBoundaries(
+    sanitizeBuckets(reading.incremental, from, now),
+  )
+
+  // Absolute data deliberately ignores the watermark. The whole point of
+  // re-reading a trailing window is to pick up steps a provider backdated into
+  // the store after we last looked; clipping them at `from` is exactly the bug
+  // that made a morning's walking vanish. Crediting only the *increase* per day
+  // is what keeps re-reads from double-counting.
+  const cleanAbsolute = splitAtHourBoundaries(
+    sanitizeBuckets(reading.absolute, Number.NEGATIVE_INFINITY, now),
+  )
 
   const next: GameState = structuredClone(state)
-  next.history = history
+
+  const fromAbsolute = mergeAuthoritativeDayRecords(
+    next.history,
+    bucketsToDayRecords(cleanAbsolute),
+  )
+  const fromIncremental = mergeDayRecords(
+    fromAbsolute.history,
+    bucketsToDayRecords(cleanIncremental),
+  )
+
+  const creditedByDay = new Map(fromAbsolute.creditedByDay)
+  for (const [date, steps] of fromIncremental.creditedByDay) {
+    creditedByDay.set(date, (creditedByDay.get(date) ?? 0) + steps)
+  }
+
+  next.history = fromIncremental.history
   // Advance the sync point even when nothing was credited, so a quiet hour is
-  // not re-scanned forever.
+  // not re-scanned forever. Only incremental sources consult it.
   next.lastSyncAt = Math.max(from, now)
 
   if (creditedByDay.size === 0) {

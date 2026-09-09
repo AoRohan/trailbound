@@ -1,4 +1,4 @@
-import type { StepBucket } from '../game/types'
+import type { StepBucket, StepReading } from '../game/types'
 import type { StepSource, StepSourceStatus } from './StepSource'
 
 /**
@@ -47,7 +47,7 @@ export class ManualStepSource implements StepSource {
     return this.pending.length > 0
   }
 
-  async fetch(since: number, now: number): Promise<StepBucket[]> {
+  async fetch(since: number, now: number): Promise<StepReading> {
     const out: StepBucket[] = []
 
     for (const b of this.pending) {
@@ -64,6 +64,8 @@ export class ManualStepSource implements StepSource {
     }
 
     this.pending = []
-    return out
+    // Always incremental: a typed-in number is the player declaring new steps,
+    // and re-reading it would count the same walk twice.
+    return { absolute: [], incremental: out }
   }
 }

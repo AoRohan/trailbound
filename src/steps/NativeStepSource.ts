@@ -1,5 +1,5 @@
 import { registerPlugin } from '@capacitor/core'
-import type { StepBucket } from '../game/types'
+import type { StepReading } from '../game/types'
 import type { StepSource, StepSourceKind, StepSourceStatus } from './StepSource'
 
 interface NativeStatus {
@@ -27,6 +27,15 @@ interface StepsPlugin {
 }
 
 const Steps = registerPlugin<StepsPlugin>('Steps')
+
+/**
+ * How far back to re-read Health Connect on every sync.
+ *
+ * Long enough to cover a slow provider backdating a whole day of steps, short
+ * enough that a phone left in a drawer doesn't dump a week into one report.
+ * The native side caps this again at 4 days regardless.
+ */
+const TRAILING_WINDOW_MS = 2 * 24 * 60 * 60 * 1000
 
 /**
  * The Android bridge: Health Connect, falling back to the hardware step counter.
@@ -76,17 +85,29 @@ export class NativeStepSource implements StepSource {
     }
   }
 
-  async fetch(since: number, now: number): Promise<StepBucket[]> {
+  async fetch(since: number, now: number): Promise<StepReading> {
+    const empty: StepReading = { absolute: [], incremental: [] }
+
     try {
-      const response = await Steps.fetch({ since, now })
+      // Always re-read a trailing window rather than only what is newer than
+      // the last sync.
+      //
+      // Providers like Health Sync copy steps out of Huawei/Samsung Health into
+      // Health Connect *backdated to when they were walked*, minutes or hours
+      // later. Asking only for "steps since my last sync" means those arrive
+      // behind the watermark and are never seen — which is exactly how a
+      // morning's 6,000 steps can show up as 131.
+      const from = Math.min(since, now - TRAILING_WINDOW_MS)
+      const response = await Steps.fetch({ since: from, now })
+
       this.lastNote = response.note ?? null
       this.lastError = response.error ?? null
 
-      if (!Array.isArray(response.buckets)) return []
+      if (!Array.isArray(response.buckets)) return empty
 
       // Trust nothing about the shape; the sanitizer handles the values, but a
       // malformed entry would slip past it as NaN.
-      return response.buckets
+      const buckets = response.buckets
         .filter(
           (b) =>
             b &&
@@ -95,9 +116,15 @@ export class NativeStepSource implements StepSource {
             Number.isFinite(b.steps),
         )
         .map((b) => ({ start: b.start, end: b.end, steps: b.steps }))
+
+      // Health Connect is a store and can be re-read safely. The raw sensor
+      // reports a delta since we last looked and must be counted exactly once.
+      return response.source === 'health-connect'
+        ? { absolute: buckets, incremental: [] }
+        : { absolute: [], incremental: buckets }
     } catch (cause) {
       this.lastError = cause instanceof Error ? cause.message : String(cause)
-      return []
+      return empty
     }
   }
 }

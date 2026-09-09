@@ -216,6 +216,61 @@ export function mergeDayRecords(
 }
 
 /**
+ * Fold in day records from a source that reports *totals*, not deltas.
+ *
+ * Health Connect is a store, not a stream: asking it about today always returns
+ * everything written for today, including steps some other app backdated into
+ * it minutes ago. So the right operation is "raise the day to the reported
+ * total", not "add what arrived" — re-reading the same window is then harmless,
+ * and late-arriving backdated data is picked up on the next sync instead of
+ * being lost behind a watermark.
+ *
+ * The day only ever moves up. A provider that is momentarily behind (or has
+ * been reinstalled, or lost its history) must never be able to erase progress
+ * the player already walked, and manual top-ups on the same day have to survive
+ * a device read too.
+ */
+export function mergeAuthoritativeDayRecords(
+  history: readonly DayRecord[],
+  incoming: readonly DayRecord[],
+): MergeResult {
+  const byDate = new Map<string, DayRecord>()
+  for (const record of history) byDate.set(record.date, { ...record })
+
+  const creditedByDay = new Map<string, number>()
+
+  for (const record of incoming) {
+    const capped = Math.min(record.steps, TUNING.maxCreditedStepsPerDay)
+    const existing = byDate.get(record.date)
+
+    if (!existing) {
+      byDate.set(record.date, { ...record, steps: capped })
+      if (capped > 0) creditedByDay.set(record.date, capped)
+      continue
+    }
+
+    // Shape signals are the source's own view of the day; take the strongest
+    // seen either way, so a manual entry can't be wiped by a quiet device read.
+    existing.bestBoutSteps = Math.max(existing.bestBoutSteps, record.bestBoutSteps)
+    existing.dawnSteps = Math.max(existing.dawnSteps, record.dawnSteps)
+    existing.duskSteps = Math.max(existing.duskSteps, record.duskSteps)
+
+    if (capped <= existing.steps) continue
+
+    creditedByDay.set(record.date, capped - existing.steps)
+    existing.steps = capped
+  }
+
+  const merged = [...byDate.values()].sort((a, b) =>
+    a.date < b.date ? -1 : a.date > b.date ? 1 : 0,
+  )
+  const trimmed =
+    merged.length > TUNING.historyDays ? merged.slice(merged.length - TUNING.historyDays) : merged
+
+  return { history: trimmed, creditedByDay }
+}
+
+/**
  * Consecutive days up to and including `throughDate` that met `goal`.
  * A day missing from history counts as a zero-step day and breaks the streak.
  */

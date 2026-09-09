@@ -35,6 +35,7 @@ export function useGame(storage: StorageAdapter, source: StepSource): GameApi {
   const [status, setStatus] = useState<StepSourceStatus | null>(null)
   const [syncing, setSyncing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [ready, setReady] = useState(false)
 
   // The live state, so `sync` never closes over a stale save.
   const stateRef = useRef<GameState | null>(null)
@@ -59,6 +60,11 @@ export function useGame(storage: StorageAdapter, source: StepSource): GameApi {
       setState(loaded)
       await storage.save(loaded)
       setStatus(await source.status())
+      // Only now is there a save for `sync` to work against. Without this flag
+      // the first sync fires while the load is still in flight, finds no state,
+      // returns silently, and never retries — so a cold start would pull no
+      // steps at all until the app was backgrounded and reopened.
+      if (!cancelled) setReady(true)
     })()
     return () => {
       cancelled = true
@@ -88,21 +94,30 @@ export function useGame(storage: StorageAdapter, source: StepSource): GameApi {
     }
   }, [source, commit])
 
-  // Pull steps whenever the app comes back to the foreground.
+  // Pull steps on launch and whenever the app returns to the foreground.
   //
   // Only for sources that read the device — a manual source has nothing to
   // offer here, and syncing it on every focus would keep pushing the sync point
   // forward and squash the next entry the player types in.
+  //
+  // Both `visibilitychange` and `focus` are wired up: WebViews are inconsistent
+  // about which one fires when an app is resumed, and a duplicate sync is
+  // harmless (the in-flight guard drops it, and absolute reads are idempotent)
+  // whereas a missed one looks like the game has stopped counting.
   useEffect(() => {
-    if (source.kind === 'manual') return
+    if (!ready || source.kind === 'manual') return
 
-    const onVisible = () => {
+    const onWake = () => {
       if (document.visibilityState === 'visible') void sync()
     }
-    document.addEventListener('visibilitychange', onVisible)
+    document.addEventListener('visibilitychange', onWake)
+    window.addEventListener('focus', onWake)
     void sync()
-    return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [source, sync])
+    return () => {
+      document.removeEventListener('visibilitychange', onWake)
+      window.removeEventListener('focus', onWake)
+    }
+  }, [ready, source, sync])
 
   const buyUpgrade = useCallback(
     (id: BuildingId) => {

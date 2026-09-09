@@ -16,6 +16,25 @@ export interface StepBucket {
   steps: number
 }
 
+/**
+ * One sync's worth of steps, split by how the data behaves over time.
+ *
+ * The distinction is load-bearing. Health Connect is a *store*: ask it about
+ * yesterday and you always get the truth, including steps some other app wrote
+ * into it after the fact. A pedometer delta or a typed-in number is a *one-shot
+ * event*: count it twice and it is wrong forever.
+ *
+ * Treating the first kind like the second is what makes a forward-only sync
+ * watermark silently lose data — a provider such as Health Sync writes steps
+ * backdated to when you walked, long after the watermark has moved past them.
+ */
+export interface StepReading {
+  /** Re-readable history. Safe to fetch repeatedly; day totals are the truth. */
+  absolute: StepBucket[]
+  /** One-shot deltas that must be credited exactly once. */
+  incremental: StepBucket[]
+}
+
 /** Everything we remember about one calendar day, in the device's local time. */
 export interface DayRecord {
   /** Local calendar day, `YYYY-MM-DD`. */
