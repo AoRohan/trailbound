@@ -60,6 +60,18 @@ These came from the user and are not negotiable without asking:
   "invalid source release: 21".
 - **minSdk is 26**, forced by `androidx.health.connect`. Don't lower it back to
   Capacitor's default 24.
+- **The APK must be signed with the stable key**, restored in CI from the
+  `ANDROID_KEYSTORE_B64` secret. Android refuses to update an installed app when
+  the signing certificate changes, and AGP's default debug keystore is
+  regenerated on every fresh runner — so without this every build was
+  unupdatable and forced an uninstall, wiping a local-only save. If the secret
+  is ever lost, every existing install has to be removed by hand; keep the
+  backup safe. `python tools/apk_info.py <apk>` prints the certificate.
+- **Health Connect data arrives late and backdated.** Providers such as Health
+  Sync write steps timestamped when they were walked, minutes or hours
+  afterwards. Never gate a Health Connect read on a forward-only watermark —
+  re-read a trailing window and take each day's total as the truth (see
+  `StepReading` and `mergeAuthoritativeDayRecords`).
 
 ## Commands
 
