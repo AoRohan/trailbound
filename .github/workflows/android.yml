@@ -67,7 +67,7 @@ jobs:
           if-no-files-found: error
 
       # Artifacts need a GitHub login to download, which is painful on a phone.
-      # A rolling prerelease gives a stable, login-free URL instead:
+      # A rolling release gives a stable, login-free URL instead:
       #   github.com/AoRohan/trailbound/releases/latest/download/app-debug.apk
       - name: Publish rolling release
         if: github.ref == 'refs/heads/main'
@@ -79,7 +79,7 @@ jobs:
             android/app/build/outputs/apk/debug/app-debug.apk \
             --repo "$GITHUB_REPOSITORY" \
             --title "Latest build" \
-            --prerelease \
+            --latest \
             --notes "Debug APK built from \`${GITHUB_SHA:0:7}\`.
 
           Install: download on the phone and tap it. Android will ask you to
