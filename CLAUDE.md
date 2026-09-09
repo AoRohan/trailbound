@@ -70,5 +70,23 @@ npm run typecheck
 gh run list --repo AoRohan/trailbound     # CI, including the APK build
 ```
 
-The APK is downloaded from the Actions artifact of the latest `Build Android
-APK` run. The web build deploys to GitHub Pages automatically on push to main.
+Every push to main rebuilds both. The web build deploys to GitHub Pages, and the
+APK is republished to the rolling `latest` release:
+https://github.com/AoRohan/trailbound/releases/latest/download/app-debug.apk
+
+## Backlog
+
+- [ ] APK is debug-signed. Fine for sideloading; set up release signing with a
+      keystore in GitHub secrets only if it ever gets distributed.
+- [ ] Health Connect may be empty if nothing on the phone writes steps into it.
+      The sensor fallback covers this, but it means no history backfill on first
+      launch. Confirm which source is live via the Settings diagnostics panel.
+- [ ] Health Connect backfill is capped at 4 days per sync so a long gap cannot
+      blast the party through a dozen biomes in one tap. Revisit if that cap
+      turns out to feel wrong in practice.
+- [ ] Game balance is analytical guesswork, never playtested. Enemy scaling,
+      salvage payouts and camp upgrade costs all want revisiting after a week of
+      real walking.
+- [ ] `android.permission.DUMP` appears in the merged manifest via a dependency
+      rather than anything declared here. Harmless and not location-related, but
+      untraced if a minimal permission set ever matters.
