@@ -57,6 +57,17 @@ export function App({
     source.kind === 'manual' ||
     (api.status !== null && (!api.status.available || !api.status.permissionGranted))
 
+  // A device source that exists but hasn't been allowed to read steps yet. The
+  // prompt belongs on the Trail screen, not buried in Settings — otherwise a
+  // first-run Android user just sees a manual entry box and no explanation.
+  const needsPermission =
+    source.kind !== 'manual' &&
+    api.status !== null &&
+    api.status.available &&
+    !api.status.permissionGranted
+
+  const requestPermission = () => void source.requestPermission().then(() => api.sync())
+
   return (
     <div className="app">
       <header className="topbar">
@@ -79,10 +90,13 @@ export function App({
             state={state}
             manual={showManual}
             onDevice={source.kind !== 'manual'}
+            needsPermission={needsPermission}
+            sourceLabel={api.status?.label ?? 'Your phone'}
             syncing={api.syncing}
             onAddSteps={addSteps}
             onToggleTrained={api.toggleTrained}
             onSync={() => void api.sync()}
+            onRequestPermission={requestPermission}
           />
         )}
         {tab === 'camp' && <CampScreen state={state} onBuy={api.buyUpgrade} />}
@@ -95,7 +109,7 @@ export function App({
             onSetGoal={api.setDailyGoal}
             onReplaceState={api.replaceState}
             onReset={api.resetGame}
-            onRequestPermission={() => void source.requestPermission().then(() => api.sync())}
+            onRequestPermission={requestPermission}
           />
         )}
       </main>

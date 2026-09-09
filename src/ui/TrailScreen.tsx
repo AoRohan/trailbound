@@ -30,18 +30,25 @@ export function TrailScreen({
   onAddSteps,
   onToggleTrained,
   onSync,
+  onRequestPermission,
   manual,
   onDevice,
+  needsPermission,
+  sourceLabel,
   syncing,
 }: {
   state: GameState
   onAddSteps: (steps: number, minutes: number) => void
   onToggleTrained: (trained: boolean) => void
   onSync: () => void
+  onRequestPermission: () => void
   /** Show the type-it-in controls. */
   manual: boolean
   /** Running inside the Android shell, where a device source is expected. */
   onDevice: boolean
+  /** A device source exists but has not been allowed to read steps yet. */
+  needsPermission: boolean
+  sourceLabel: string
   syncing: boolean
 }) {
   const [custom, setCustom] = useState('')
@@ -69,6 +76,20 @@ export function TrailScreen({
 
   return (
     <>
+      {needsPermission && (
+        <div className="card" style={{ borderColor: 'var(--accent)' }}>
+          <div className="card__title">Connect your steps</div>
+          <div className="small muted" style={{ marginBottom: 10 }}>
+            {sourceLabel} can count your steps for you, so the road moves without you
+            touching anything. Trailbound only ever asks to read step counts — never your
+            location.
+          </div>
+          <button className="btn btn--primary btn--wide" onClick={onRequestPermission}>
+            Allow step access
+          </button>
+        </div>
+      )}
+
       <div className="hero">
         <div className="hero__steps tabular">{int(record.steps)}</div>
         <div className="hero__label">steps today · goal {int(state.dailyGoal)}</div>
