@@ -43,9 +43,31 @@ jobs:
       - name: Copy the web build into the Android project
         run: npx cap sync android
 
+      # Sign with a stable key so updates install over the previous version.
+      # Without it Gradle falls back to a debug keystore that AGP regenerates
+      # on every fresh runner, and Android rejects the update outright.
+      - name: Restore the signing keystore
+        env:
+          ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: |
+          if [ -z "$ANDROID_KEYSTORE_B64" ]; then
+            echo "::warning::No signing keystore secret; falling back to an ephemeral debug key. Updates will not install over an existing app."
+            exit 0
+          fi
+          echo "$ANDROID_KEYSTORE_B64" | base64 -d > android/trailbound-signing.p12
+          echo "keystore restored ($(stat -c%s android/trailbound-signing.p12) bytes)"
+
       - name: Assemble debug APK
         working-directory: android
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Report the signing certificate
+        # Printed on every build so a key change is visible in the log rather
+        # than showing up as "App not installed" on the phone.
+        run: |
+          python3 tools/apk_info.py android/app/build/outputs/apk/debug/app-debug.apk
 
       - name: Confirm no location permission shipped
         # A regression here would be the one thing the user explicitly asked

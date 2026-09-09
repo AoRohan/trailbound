@@ -19,7 +19,7 @@ android {
         applicationId "com.aorohan.trailbound"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
+        versionCode System.getenv('GITHUB_RUN_NUMBER') ? System.getenv('GITHUB_RUN_NUMBER').toInteger() : 1
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
@@ -28,10 +28,40 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // A stable signing key, so an update installs over the previous version.
+    //
+    // Without this the build falls back to Android's debug keystore, which AGP
+    // auto-generates per machine -- and every CI run is a fresh machine, so
+    // every APK gets a different key and Android rejects the update with
+    // "App not installed". The keystore is decoded from a GitHub secret; when
+    // it is absent (a local build, a fork) the default debug key is used and
+    // everything still compiles.
+    signingConfigs {
+        stable {
+            def ks = rootProject.file('trailbound-signing.p12')
+            if (ks.exists()) {
+                storeFile ks
+                storeType 'PKCS12'
+                def pw = System.getenv('ANDROID_KEYSTORE_PASSWORD') ?: 'trailbound'
+                storePassword pw
+                keyAlias 'trailbound'
+                keyPassword pw
+            }
+        }
+    }
+
     buildTypes {
+        debug {
+            if (rootProject.file('trailbound-signing.p12').exists()) {
+                signingConfig signingConfigs.stable
+            }
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (rootProject.file('trailbound-signing.p12').exists()) {
+                signingConfig signingConfigs.stable
+            }
         }
     }
 }
